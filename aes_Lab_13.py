@@ -1,5 +1,19 @@
 # definición de clases
 
+'''
+Vuestra implementación debería ser compatible con openssl2 cuando usáis 0x11B
+como polinomio:
+
+el comando
+openssl aes-128-cbc -d -K key -iv IV -in infile -out outfile
+debería descifrarlo correctamente,
+
+si cifráis un fichero con el comando
+openssl aes-128-cbc -e -K key -iv IV -in infile -out outfile
+deberíais poder descifrarlo con vuestra implementación.
+'''
+
+
 class G_F:
     '''
     Genera un cuerpo finito usando como polinomio irreducible el dado

@@ -29,18 +29,47 @@ class G_F:
         tenga el valor i tal que a=g**i. (g generador del cuerpo finito
         representado por el menor entero entre 0 y 255.)
         '''
-        self.Polinomio_Irreducible
-        self.Tabla_EXP
-        self.Tabla_LOG
-        self.g
+        range = 256 # 2^8
+
+        self.Polinomio_Irreducible = Polinomio_Irreducible
+        self.Tabla_EXP = [0] * range * 2 # para evitar módulo 255
+        self.Tabla_LOG = [0] * range
+        self.g = 0x03
+
+        # Multiplicación en GF(2^8) sin tablas
+        def gf_mult(a, b):
+            res = 0
+            while b:
+                if b & 1:
+                    res ^= a
+                b >>= 1
+                a <<= 1
+                if a & 0x100:
+                    a ^= self.Polinomio_Irreducible
+            return res & 0xFF
+
+        # Construcción de tablas a partir del generador
+        x = 1
+        for i in range(255):
+            self.Tabla_EXP[i] = x
+            self.Tabla_LOG[x] = i
+            x = gf_mult(x, self.g)
+
+        # Duplicamos Tabla_EXP
+        for i in range(255, 512):
+            self.Tabla_EXP[i] = self.Tabla_EXP[i - 255]
 
     def xTimes(self, n):
         '''
         Entrada: un elemento del cuerpo representado por un entero entre 0 y
         255
         Salida: un elemento del cuerpo representado por un entero entre 0 y 255
-        que es el producto en el cuerpo de ’n’ y 0x02 (el polinomio X).
+        que es el producto en el cuerpo de 'n' y 0x02 (el polinomio X).
         '''
+        res = n << 1
+        if res & 0x100:
+            res ^= self.Polinomio_Irreducible
+        return res & 0xFF
 
     def producto(self, a, b):
         '''
@@ -52,6 +81,9 @@ class G_F:
         la definición en términos de polinomios o calcular usando las tablas
         Tabla_EXP y Tabla_LOG.
         '''
+        if a == 0 or b == 0:
+            return 0
+        return self.Tabla_EXP[self.Tabla_LOG[a] + self.Tabla_LOG[b]]
 
     def inverso(self, n):
         '''
@@ -61,6 +93,9 @@ class G_F:
         representado por un entero entre 1 y 255 si n <> 0.
         Atención: Se valorará la eficiencia.
         '''
+        if n == 0:
+            return 0
+        return self.Tabla_EXP[255 - self.Tabla_LOG[n]]
 
 
 class AES:

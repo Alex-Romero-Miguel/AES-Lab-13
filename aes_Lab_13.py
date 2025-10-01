@@ -13,6 +13,7 @@ openssl aes-128-cbc -e -K key -iv IV -in infile -out outfile
 deberíais poder descifrarlo con vuestra implementación.
 '''
 
+import os
 
 class G_F:
     '''
@@ -118,7 +119,7 @@ class AES:
         Rcon: equivalente a la tabla 5, p ́ag. 17
         InvMixMatrix : equivalente a la matriz usada en 5.3.3, p ́ag. 24
         '''
-        self.Polinomio_Irreducible
+        self.Polinomio_Irreducible = Polinomio_Irreducible
         self.SBox
         self.InvSBox
         self.Rcon
@@ -198,20 +199,35 @@ class AES:
         IV asociado 0x4fe68dfd67d8d269db4ad2ebac646986
 
         El padding usado será PKCS7.
-        El nombre de fichero cifrado ser ́a el obtenido al añadir el sufijo
+        El nombre de fichero cifrado será el obtenido al añadir el sufijo
         .enc al nombre del fichero a cifrar:
         NombreFichero --> NombreFichero.enc
         '''
+        mensaje_encriptado = "mensaje encriptado" # placeholder
+        fichero_dec = os.path.splitext(fichero)[0] + ".dec"
+        try:
+            with open(fichero_dec, "w", encoding="utf-8") as f:
+                f.write(mensaje_encriptado)
+            print(f"[OK] Archivo generado: {fichero_dec}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo crear el archivo: {e}")
 
     def decrypt_file(self, fichero):
         '''
         Entrada: Nombre del fichero a descifrar
         Salida: Fichero descifrado usando la clave utilizada en el constructor
-
         de la clase.
+
         Para descifrar se usar ́a el modo CBC, con el IV usado para cifrar.
         El nombre de fichero descifrado ser ́a el obtenido al añadir el sufijo
         .dec al nombre del fichero a descifrar:
         NombreFichero --> NombreFichero.dec
-
         '''
+        mensaje_descifrado = "mensaje descifrado" # placeholder
+        fichero_enc = os.path.splitext(fichero)[0] + ".enc"
+        try:
+            with open(fichero_enc, "w", encoding="utf-8") as f:
+                f.write(mensaje_descifrado)
+            print(f"[OK] Archivo generado: {fichero_enc}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo crear el archivo: {e}")

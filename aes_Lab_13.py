@@ -107,7 +107,17 @@ class AES:
     El nombre de los métodos, tablas, etc son los mismos (salvo
     capitalización) que los empleados en el FIPS 197
     '''
-    
+    def _mat_mul_4x4(self, M, v):
+        '''
+        Función auxiliar para multiplicar una matriz M 4x4 por un vector v 4x1 en GF(2^8).
+        '''
+        gf = G_F(self.Polinomio_Irreducible)
+        r0 = gf.producto(v[0], M[0][0]) ^ gf.producto(v[1], M[0][1]) ^ gf.producto(v[2], M[0][2]) ^ gf.producto(v[3], M[0][3])
+        r1 = gf.producto(v[0], M[1][0]) ^ gf.producto(v[1], M[1][1]) ^ gf.producto(v[2], M[1][2]) ^ gf.producto(v[3], M[1][3])
+        r2 = gf.producto(v[0], M[2][0]) ^ gf.producto(v[1], M[2][1]) ^ gf.producto(v[2], M[2][2]) ^ gf.producto(v[3], M[2][3])
+        r3 = gf.producto(v[0], M[3][0]) ^ gf.producto(v[1], M[3][1]) ^ gf.producto(v[2], M[3][2]) ^ gf.producto(v[3], M[3][3])
+        return [r0 & 0xFF, r1 & 0xFF, r2 & 0xFF, r3 & 0xFF]
+
     def __init__(self, key, Polinomio_Irreducible=0x11B):
         '''
         Entrada:
@@ -120,6 +130,8 @@ class AES:
         InvMixMatrix : equivalente a la matriz usada en 5.3.3, pág. 24 (pág. 32
         pdf)
         '''
+        self.key = key
+
         self.Polinomio_Irreducible = Polinomio_Irreducible
         
         self.SBox = [           # se puede generar algorítmicamente
@@ -220,37 +232,109 @@ class AES:
         5.1.3 MIXCOLUMNS()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        M = [
+            [0x02, 0x03, 0x01, 0x01],
+            [0x01, 0x02, 0x03, 0x01],
+            [0x01, 0x01, 0x02, 0x03],
+            [0x03, 0x01, 0x01, 0x02],
+        ]
+        for c in range(4):
+            col = [State[r][c] & 0xFF for r in range(4)]
+            out = self._mat_mul_4x4(M, col)
+            for r in range(4):
+                State[r][c] = out[r]
 
     def InvMixColumns(self, State):
         '''
         5.3.3 INVMIXCOLUMNS()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        M = self.InvMixMatrix
+        for c in range(4):
+            col = [State[r][c] & 0xFF for r in range(4)]
+            out = self._mat_mul_4x4(M, col)
+            for r in range(4):
+                State[r][c] = out[r]
 
     def AddRoundKey(self, State, roundKey):
         '''
         5.1.4 ADDROUNDKEY()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        for r in range(4):
+            for c in range(4):
+                State[r][c] ^= roundKey[r][c]
 
+    def RotWord(self, word):
+        '''
+        Función ROTWORD() de la pág. 17 (pág. 25 pdf)
+        FIPS 197: Advanced Encryption Standard (AES)
+        '''
+        return word[1:] + word[:1]
+
+    def SubWord(self, word):
+        '''
+        Función SUBWORD() de la pág. 17 (pág. 25 pdf)
+        FIPS 197: Advanced Encryption Standard (AES)
+        '''
+        return [self.SBox[b & 0xFF] for b in word]
+    
     def KeyExpansion(self, key):
         '''
         5.2 KEYEXPANSION()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-
+        w = []
+        Nk = len(key) // 4
+        Nr = Nk + 6
+        
+        i = 0
+        while i <= Nk -1:
+            w[i] = [key[4*i], key[4*i+1], key[4*i+2], key[4*i+3]]
+            i += 1
+        
+        while i <= 4 * Nr + 3:
+            tmp = w[i-1]
+            if i % Nk == 0:
+                tmp = self.SubWord(self.RotWord(tmp) ^ self.Rcon[i//Nk])
+            elif (Nk > 6) and (i % Nk == 4):
+                tmp = self.SubWord(tmp)
+            w[i] = w[i-Nk] ^ tmp
+            i += 1
+        return w
+        
     def Cipher(self, State, Nr, Expanded_KEY):
         '''
-        5.1 Cipher(), Algorithm 1 p ́ag. 12
+        5.1 Cipher(), Algorithm 1 pág. 12
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        State = self.AddRoundKey(State, Expanded_KEY[0:4])
+        for round in range(1, Nr):
+            State = self.SubBytes(State)
+            State = self.ShiftRows(State)
+            State = self.MixColumns(State)
+            State = self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
+        State = self.SubBytes(State)
+        State = self.ShiftRows(State)
+        State = self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
+        return State
 
     def InvCipher(self, State, Nr, Expanded_KEY):
         '''
         5. InvCipher()
-        Algorithm 3 p ́ag. 20 o Algorithm 4 p ́ag. 25. Son equivalentes
+        Algorithm 3 pág. 20 o Algorithm 4 pág. 25. Son equivalentes
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        State = self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
+        for round in range(Nr-1, 0, -1):
+            State = self.InvShiftRows(State)
+            State = self.InvSubBytes(State)
+            State = self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
+            State = self.InvMixColumns(State)
+        State = self.InvShiftRows(State)
+        State = self.InvSubBytes(State)
+        State = self.AddRoundKey(State, Expanded_KEY[0:4])
+        return State
 
     def encrypt_file(self, fichero):
         '''

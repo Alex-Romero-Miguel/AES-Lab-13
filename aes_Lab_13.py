@@ -14,12 +14,13 @@ deberíais poder descifrarlo con vuestra implementación.
 '''
 
 import os
+from hashlib import sha256
 
 class G_F:
     '''
     Genera un cuerpo finito usando como polinomio irreducible el dado
     representado como un entero. Por defecto toma el polinomio del AES.
-    Los elementos del cuerpo los representaremos por enteros 0<= n <= 255.
+    Los elementos del cuerpo los representaremos por enteros 0 <= n <= 255.
     '''
 
     def __init__(self, Polinomio_Irreducible=0x11B):
@@ -30,11 +31,10 @@ class G_F:
         tenga el valor i tal que a=g**i. (g generador del cuerpo finito
         representado por el menor entero entre 0 y 255.)
         '''
-        range = 256 # 2^8
 
-        self.Polinomio_Irreducible = Polinomio_Irreducible
-        self.Tabla_EXP = [0] * range * 2 # para evitar módulo 255
-        self.Tabla_LOG = [0] * range
+        self.Polinomio_Irreducible = int(Polinomio_Irreducible, 16)
+        self.Tabla_EXP = [0] * 512 # para evitar módulo 255
+        self.Tabla_LOG = [0] * 256
         self.g = 0x03
 
         # Multiplicación en GF(2^8) sin tablas
@@ -65,7 +65,7 @@ class G_F:
         Entrada: un elemento del cuerpo representado por un entero entre 0 y
         255
         Salida: un elemento del cuerpo representado por un entero entre 0 y 255
-        que es el producto en el cuerpo de 'n' y 0x02 (el polinomio X).
+        que es el producto en el cuerpo de 'n' y 0x02 (el polinomio x).
         '''
         res = n << 1
         if res & 0x100:
@@ -99,6 +99,24 @@ class G_F:
         return self.Tabla_EXP[255 - self.Tabla_LOG[n]]
 
 
+
+def bytes_to_state(block):
+    assert len(block) == 16
+    s = [[0] * 4 for _ in range(4)]
+    for c in range(4):
+        for r in range(4):
+            s[r][c] = block[r + 4 * c]
+    return s
+
+def state_to_bytes(state):
+    out = bytearray(16)
+    for c in range(4):
+        for r in range(4):
+            out[r + 4 * c] = state[r][c] & 0xFF
+    return bytes(out)
+
+
+
 class AES:
     '''
     Documento de referencia:
@@ -130,7 +148,9 @@ class AES:
         InvMixMatrix : equivalente a la matriz usada en 5.3.3, pág. 24 (pág. 32
         pdf)
         '''
-        self.key = key
+        self.key = key.encode('utf-8')
+        self.Nk = len(self.key) // 4
+        self.Nr = self.Nk + 6
 
         self.Polinomio_Irreducible = Polinomio_Irreducible
         
@@ -172,14 +192,14 @@ class AES:
         
         self.Rcon = [           # se puede generar algorítmicamente
             [0x01,0x00,0x00,0x00],
-            [0x02,0x00,0x00,0x00], 
+            [0x02,0x00,0x00,0x00],
             [0x04,0x00,0x00,0x00],
-            [0x80,0x00,0x00,0x00],
             [0x08,0x00,0x00,0x00],
-            [0x1b,0x00,0x00,0x00],
             [0x10,0x00,0x00,0x00],
-            [0x40,0x00,0x00,0x00],
             [0x20,0x00,0x00,0x00],
+            [0x40,0x00,0x00,0x00],
+            [0x80,0x00,0x00,0x00],
+            [0x1b,0x00,0x00,0x00],
             [0x36,0x00,0x00,0x00]]
         
         self.InvMixMatrix = [   # se puede generar algorítmicamente
@@ -284,22 +304,23 @@ class AES:
         5.2 KEYEXPANSION()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        w = []
-        Nk = len(key) // 4
-        Nr = Nk + 6
+        w = [[0,0,0,0] for _ in range(4 * (self.Nr + 1))]
         
         i = 0
-        while i <= Nk -1:
+        while i <= self.Nk -1:
             w[i] = [key[4*i], key[4*i+1], key[4*i+2], key[4*i+3]]
             i += 1
         
-        while i <= 4 * Nr + 3:
+        while i <= 4 * self.Nr + 3:
             tmp = w[i-1]
-            if i % Nk == 0:
-                tmp = self.SubWord(self.RotWord(tmp) ^ self.Rcon[i//Nk])
-            elif (Nk > 6) and (i % Nk == 4):
+            if i % self.Nk == 0:
+                tmp_rot = self.RotWord(tmp)
+                tmp_sub = self.SubWord(tmp_rot)
+                rc_word = self.Rcon[i // self.Nk]
+                tmp = [tmp_sub[j] ^ rc_word[j] for j in range(4)]
+            elif (self.Nk > 6) and (i % self.Nk == 4):
                 tmp = self.SubWord(tmp)
-            w[i] = w[i-Nk] ^ tmp
+            w[i] = [(w[i - self.Nk][j] ^ tmp[j]) & 0xFF for j in range(4)]
             i += 1
         return w
         
@@ -308,15 +329,15 @@ class AES:
         5.1 Cipher(), Algorithm 1 pág. 12
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        State = self.AddRoundKey(State, Expanded_KEY[0:4])
+        self.AddRoundKey(State, Expanded_KEY[0:4])
         for round in range(1, Nr):
-            State = self.SubBytes(State)
-            State = self.ShiftRows(State)
-            State = self.MixColumns(State)
-            State = self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
-        State = self.SubBytes(State)
-        State = self.ShiftRows(State)
-        State = self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
+            self.SubBytes(State)
+            self.ShiftRows(State)
+            self.MixColumns(State)
+            self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
+        self.SubBytes(State)
+        self.ShiftRows(State)
+        self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
         return State
 
     def InvCipher(self, State, Nr, Expanded_KEY):
@@ -325,22 +346,22 @@ class AES:
         Algorithm 3 pág. 20 o Algorithm 4 pág. 25. Son equivalentes
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        State = self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
+        self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
         for round in range(Nr-1, 0, -1):
-            State = self.InvShiftRows(State)
-            State = self.InvSubBytes(State)
-            State = self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
-            State = self.InvMixColumns(State)
-        State = self.InvShiftRows(State)
-        State = self.InvSubBytes(State)
-        State = self.AddRoundKey(State, Expanded_KEY[0:4])
+            self.InvShiftRows(State)
+            self.InvSubBytes(State)
+            self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
+            self.InvMixColumns(State)
+        self.InvShiftRows(State)
+        self.InvSubBytes(State)
+        self.AddRoundKey(State, Expanded_KEY[0:4])
         return State
 
     def encrypt_file(self, fichero):
         '''
         Entrada: Nombre del fichero a cifrar
         Salida: Fichero cifrado usando la clave utilizada en el constructor de
-        la clase. Para cifrar se usar ́a el modo CBC, con IV correspondiente a
+        la clase. Para cifrar se usará el modo CBC, con IV correspondiente a
         los 16 primeros bytes obtenidos al aplicar el sha256 a la concatenación
         de "IV" y la clave usada para cifrar. Por ejemplo:
         Key 0x0aba289662caa5caaa0d073bd0b575f4
@@ -353,10 +374,34 @@ class AES:
         .enc al nombre del fichero a cifrar:
         NombreFichero --> NombreFichero.enc
         '''
-        mensaje_encriptado = "mensaje encriptado" # placeholder
-        fichero_dec = os.path.splitext(fichero)[0] + ".dec"
+        
+        iv = sha256(b"IV" + self.key).digest()[:16]
+
+        with open(fichero, "rb") as f:
+            message = f.read()
+        
+        pad_len = 16 - (len(message) % 16)
+        message = message + bytes([pad_len] * pad_len)
+        expanded_key = self.KeyExpansion(self.key)
+
+        prev = iv
+        encrypted_blocks = []
+        for i in range(0, len(message), 16):
+            block = bytearray(message[i:i+16])
+
+            for j in range(16):
+                block[j] ^= prev[j]
+            
+            state = bytes_to_state(bytes(block))
+            self.Cipher(state, self.Nr, expanded_key)
+            enc = state_to_bytes(state)
+            encrypted_blocks.append(enc)
+            prev = enc
+
+        mensaje_encriptado = b"".join(encrypted_blocks)
+        fichero_dec = os.path.splitext(fichero)[0] + ".enc"
         try:
-            with open(fichero_dec, "w", encoding="utf-8") as f:
+            with open(fichero_dec, "wb") as f:
                 f.write(mensaje_encriptado)
             print(f"[OK] Archivo generado: {fichero_dec}")
         except Exception as e:
@@ -373,10 +418,46 @@ class AES:
         .dec al nombre del fichero a descifrar:
         NombreFichero --> NombreFichero.dec
         '''
-        mensaje_descifrado = "mensaje descifrado" # placeholder
-        fichero_enc = os.path.splitext(fichero)[0] + ".enc"
+
+        iv = sha256(b"IV" + self.key).digest()[:16]
+
+        with open(fichero, "rb") as f:
+            message = f.read()
+
+        if len(message) % 16 != 0:
+            raise ValueError("Invalid ciphertext length. Expect n*16.")
+        
+        expanded_key = self.KeyExpansion(self.key)
+
+        prev = iv
+        decrypted_blocks = []
+
+        for i in range(0, len(message), 16):
+            block = bytearray(message[i:i+16])
+            
+            state = bytes_to_state(bytes(block))
+            self.InvCipher(state, self.Nr, expanded_key)
+            dec = state_to_bytes(state)
+
+            for j in range(16):
+                block[j] ^= prev[j]
+            
+            decrypted_blocks.append(dec)
+            prev = dec
+
+        if len(message) == 0 or len(message) % 16 != 0:
+            raise ValueError("Invalid PKCS#7 padding (length).")
+        pad_len = message[-1]
+        if pad_len < 1 or pad_len > 16:
+            raise ValueError("Invalid PKCS#7 padding (value range).")
+        if message[-pad_len:] != bytes([pad_len] * pad_len):
+            raise ValueError("Invalid PKCS#7 padding (pattern).")
+        message[:-pad_len]
+
+        mensaje_descifrado = b"".join(decrypted_blocks)
+        fichero_enc = os.path.splitext(fichero)[0] + ".dec"
         try:
-            with open(fichero_enc, "w", encoding="utf-8") as f:
+            with open(fichero_enc, "wb") as f:
                 f.write(mensaje_descifrado)
             print(f"[OK] Archivo generado: {fichero_enc}")
         except Exception as e:

@@ -399,13 +399,15 @@ class AES:
             prev = enc
 
         mensaje_encriptado = b"".join(encrypted_blocks)
-        fichero_dec = os.path.splitext(fichero)[0] + ".enc"
+        fichero_enc = os.path.splitext(fichero)[0] + ".enc"
         try:
-            with open(fichero_dec, "wb") as f:
+            with open(fichero_enc, "wb") as f:
                 f.write(mensaje_encriptado)
-            print(f"[OK] Archivo generado: {fichero_dec}")
+            print(f"[OK] Archivo generado: {fichero_enc}")
+            return fichero_enc
         except Exception as e:
             print(f"[ERROR] No se pudo crear el archivo: {e}")
+            return None
 
     def decrypt_file(self, fichero):
         '''
@@ -452,13 +454,15 @@ class AES:
             raise ValueError("Invalid PKCS#7 padding (value range).")
         if message[-pad_len:] != bytes([pad_len] * pad_len):
             raise ValueError("Invalid PKCS#7 padding (pattern).")
-        message[:-pad_len]
+        message =message[:-pad_len]
 
         mensaje_descifrado = b"".join(decrypted_blocks)
-        fichero_enc = os.path.splitext(fichero)[0] + ".dec"
+        fichero_dec = os.path.splitext(fichero)[0] + ".dec"
         try:
-            with open(fichero_enc, "wb") as f:
+            with open(fichero_dec, "wb") as f:
                 f.write(mensaje_descifrado)
-            print(f"[OK] Archivo generado: {fichero_enc}")
+            print(f"[OK] Archivo generado: {fichero_dec}")
+            return fichero_dec
         except Exception as e:
             print(f"[ERROR] No se pudo crear el archivo: {e}")
+            return None

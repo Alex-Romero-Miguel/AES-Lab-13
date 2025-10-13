@@ -10,6 +10,10 @@ cifra el fichero file usando el polinomio 0x11d y la clave
 python test_Lab_13.py -d -f file -p 0x11d -k 0xe9e03576ec312b3698c3b6f37d49d770
 descifra el fichero file usando el polinomio 0x11d y la clave
 0xe9e03576ec312b3698c3b6f37d49d770
+
+hemos hecho
+openssl aes-128-cbc -e -K c467220306217095e29b309246602170 -iv f1783f3d45a7e612ba2d9199335f9d7d -in ./01_Secreta_Valores-Test/prueba_corta.txt -out ./01_Secreta_Valores-Test/prueba_
+corta.txt_0x11b_c467220306217095e29b309246602170.enc
 '''
 
 import sys
@@ -60,6 +64,9 @@ def main():
     elif accion == "-d":
         print(f"[INFO] Descifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
         aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
+    elif accion == "-t":
+        encrypted = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
+        aes_Lab_13.AES(clave, polinomio).decrypt_file(encrypted)
     else:
         print("Uso: python test_Lab_13.py [-c | -d] -f <fichero> -p <polinomio> -k <clave>")
         sys.exit(1)

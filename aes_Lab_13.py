@@ -148,7 +148,7 @@ class AES:
         InvMixMatrix : equivalente a la matriz usada en 5.3.3, pág. 24 (pág. 32
         pdf)
         '''
-        self.key = key.encode('utf-8')
+        self.key = bytes.fromhex(key[2:])
         self.Nk = len(self.key) // 4
         self.Nr = self.Nk + 6
 
@@ -200,7 +200,12 @@ class AES:
             [0x40,0x00,0x00,0x00],
             [0x80,0x00,0x00,0x00],
             [0x1b,0x00,0x00,0x00],
-            [0x36,0x00,0x00,0x00]]
+            [0x36,0x00,0x00,0x00],
+            [0x6c,0x00,0x00,0x00],
+            [0xd8,0x00,0x00,0x00],
+            [0xab,0x00,0x00,0x00],
+            [0x4d,0x00,0x00,0x00],
+            [0x9a,0x00,0x00,0x00]]
         
         self.InvMixMatrix = [   # se puede generar algorítmicamente
             [0x0e,0x0b,0x0d,0x09],
@@ -374,15 +379,16 @@ class AES:
         .enc al nombre del fichero a cifrar:
         NombreFichero --> NombreFichero.enc
         '''
+        expanded_key = self.KeyExpansion(self.key)
         
-        iv = sha256(b"IV" + self.key).digest()[:16]
+        iv = os.urandom(16)
+        print(iv.hex())
 
         with open(fichero, "rb") as f:
             message = f.read()
         
         pad_len = 16 - (len(message) % 16)
         message = message + bytes([pad_len] * pad_len)
-        expanded_key = self.KeyExpansion(self.key)
 
         prev = iv
         encrypted_blocks = []
@@ -402,7 +408,7 @@ class AES:
         fichero_enc = os.path.splitext(fichero)[0] + ".enc"
         try:
             with open(fichero_enc, "wb") as f:
-                f.write(mensaje_encriptado)
+                f.write(iv + mensaje_encriptado)
             print(f"[OK] Archivo generado: {fichero_enc}")
             return fichero_enc
         except Exception as e:
@@ -420,16 +426,16 @@ class AES:
         .dec al nombre del fichero a descifrar:
         NombreFichero --> NombreFichero.dec
         '''
-
-        iv = sha256(b"IV" + self.key).digest()[:16]
+        expanded_key = self.KeyExpansion(self.key)
 
         with open(fichero, "rb") as f:
+            iv = f.read(16)     # algo falla
             message = f.read()
+
+        print(iv.hex())
 
         if len(message) % 16 != 0:
             raise ValueError("Invalid ciphertext length. Expect n*16.")
-        
-        expanded_key = self.KeyExpansion(self.key)
 
         prev = iv
         decrypted_blocks = []
@@ -447,13 +453,17 @@ class AES:
             decrypted_blocks.append(dec)
             prev = dec
 
+        """
         if len(message) == 0 or len(message) % 16 != 0:
             raise ValueError("Invalid PKCS#7 padding (length).")
+        """
         pad_len = message[-1]
+        """
         if pad_len < 1 or pad_len > 16:
             raise ValueError("Invalid PKCS#7 padding (value range).")
         if message[-pad_len:] != bytes([pad_len] * pad_len):
             raise ValueError("Invalid PKCS#7 padding (pattern).")
+        """
         message =message[:-pad_len]
 
         mensaje_descifrado = b"".join(decrypted_blocks)

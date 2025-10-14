@@ -381,7 +381,7 @@ class AES:
         '''
         expanded_key = self.KeyExpansion(self.key)
         
-        iv = os.urandom(16)
+        iv = sha256(b"IV" + self.key).digest()[:16]
         print(iv.hex())
 
         with open(fichero, "rb") as f:
@@ -408,7 +408,7 @@ class AES:
         fichero_enc = os.path.splitext(fichero)[0] + ".enc"
         try:
             with open(fichero_enc, "wb") as f:
-                f.write(iv + mensaje_encriptado)
+                f.write(mensaje_encriptado)
             print(f"[OK] Archivo generado: {fichero_enc}")
             return fichero_enc
         except Exception as e:
@@ -428,11 +428,11 @@ class AES:
         '''
         expanded_key = self.KeyExpansion(self.key)
 
-        with open(fichero, "rb") as f:
-            iv = f.read(16)     # algo falla
-            message = f.read()
-
+        iv = sha256(b"IV" + self.key).digest()[:16]
         print(iv.hex())
+
+        with open(fichero, "rb") as f:
+            message = f.read()
 
         if len(message) % 16 != 0:
             raise ValueError("Invalid ciphertext length. Expect n*16.")

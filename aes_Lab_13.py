@@ -113,7 +113,7 @@ def state_to_bytes(state):
     for c in range(4):
         for r in range(4):
             out[r + 4 * c] = state[r][c] & 0xFF
-    return bytes(out)
+    return out
 
 
 
@@ -382,7 +382,6 @@ class AES:
         expanded_key = self.KeyExpansion(self.key)
         
         iv = sha256(b"IV" + self.key).digest()[:16]
-        print(iv.hex())
 
         with open(fichero, "rb") as f:
             message = f.read()
@@ -400,15 +399,15 @@ class AES:
             
             state = bytes_to_state(bytes(block))
             self.Cipher(state, self.Nr, expanded_key)
-            enc = state_to_bytes(state)
+            enc = bytes(state_to_bytes(state))
             encrypted_blocks.append(enc)
             prev = enc
 
-        mensaje_encriptado = b"".join(encrypted_blocks)
+        encrypted_message = b"".join(encrypted_blocks)
         fichero_enc = os.path.splitext(fichero)[0] + ".enc"
         try:
             with open(fichero_enc, "wb") as f:
-                f.write(mensaje_encriptado)
+                f.write(encrypted_message)
             print(f"[OK] Archivo generado: {fichero_enc}")
             return fichero_enc
         except Exception as e:
@@ -429,13 +428,12 @@ class AES:
         expanded_key = self.KeyExpansion(self.key)
 
         iv = sha256(b"IV" + self.key).digest()[:16]
-        print(iv.hex())
 
         with open(fichero, "rb") as f:
             message = f.read()
 
-        if len(message) % 16 != 0:
-            raise ValueError("Invalid ciphertext length. Expect n*16.")
+        if len(message) == 0 or len(message) % 16 != 0:
+            raise ValueError("Padding PKCS#7 inválido (longitud).")
 
         prev = iv
         decrypted_blocks = []
@@ -448,29 +446,27 @@ class AES:
             dec = state_to_bytes(state)
 
             for j in range(16):
-                block[j] ^= prev[j]
+                dec[j] ^= prev[j]
             
+            dec = bytes(dec)
             decrypted_blocks.append(dec)
-            prev = dec
+            prev = block
 
-        """
-        if len(message) == 0 or len(message) % 16 != 0:
-            raise ValueError("Invalid PKCS#7 padding (length).")
-        """
-        pad_len = message[-1]
-        """
+        decrypted_message = b"".join(decrypted_blocks)
+
+        pad_len = decrypted_message[-1]
+
         if pad_len < 1 or pad_len > 16:
-            raise ValueError("Invalid PKCS#7 padding (value range).")
-        if message[-pad_len:] != bytes([pad_len] * pad_len):
-            raise ValueError("Invalid PKCS#7 padding (pattern).")
-        """
-        message =message[:-pad_len]
+            raise ValueError("Padding PKCS#7 inválido (rango de valores).")
+        if decrypted_message[-pad_len:] != bytes([pad_len] * pad_len):
+            raise ValueError("Padding PKCS#7 inválido (patrón).")
+        
+        decrypted_message = decrypted_message[:-pad_len]
 
-        mensaje_descifrado = b"".join(decrypted_blocks)
         fichero_dec = os.path.splitext(fichero)[0] + ".dec"
         try:
             with open(fichero_dec, "wb") as f:
-                f.write(mensaje_descifrado)
+                f.write(decrypted_message)
             print(f"[OK] Archivo generado: {fichero_dec}")
             return fichero_dec
         except Exception as e:

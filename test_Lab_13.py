@@ -60,13 +60,10 @@ def main():
 
     if accion == "-c":
         print(f"[INFO] Cifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
-        aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
+        fichero_enc = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
     elif accion == "-d":
         print(f"[INFO] Descifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
-        aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
-    elif accion == "-t":
-        encrypted = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
-        aes_Lab_13.AES(clave, polinomio).decrypt_file(encrypted)
+        fichero_dec = aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
     else:
         print("Uso: python test_Lab_13.py [-c | -d] -f <fichero> -p <polinomio> -k <clave>")
         sys.exit(1)

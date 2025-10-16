@@ -32,7 +32,7 @@ class G_F:
         representado por el menor entero entre 0 y 255.)
         '''
 
-        self.Polinomio_Irreducible = int(Polinomio_Irreducible, 16)
+        self.Polinomio_Irreducible = Polinomio_Irreducible
         self.Tabla_EXP = [0] * 512 # para evitar módulo 255
         self.Tabla_LOG = [0] * 256
         self.g = 0x03
@@ -129,7 +129,7 @@ class AES:
         '''
         Función auxiliar para multiplicar una matriz M 4x4 por un vector v 4x1 en GF(2^8).
         '''
-        gf = G_F(self.Polinomio_Irreducible)
+        gf = self.gf
         r0 = gf.producto(v[0], M[0][0]) ^ gf.producto(v[1], M[0][1]) ^ gf.producto(v[2], M[0][2]) ^ gf.producto(v[3], M[0][3])
         r1 = gf.producto(v[0], M[1][0]) ^ gf.producto(v[1], M[1][1]) ^ gf.producto(v[2], M[1][2]) ^ gf.producto(v[3], M[1][3])
         r2 = gf.producto(v[0], M[2][0]) ^ gf.producto(v[1], M[2][1]) ^ gf.producto(v[2], M[2][2]) ^ gf.producto(v[3], M[2][3])
@@ -149,10 +149,14 @@ class AES:
         pdf)
         '''
         self.key = bytes.fromhex(key[2:])
+
         self.Nk = len(self.key) // 4
+
         self.Nr = self.Nk + 6
 
-        self.Polinomio_Irreducible = Polinomio_Irreducible
+        self.Polinomio_Irreducible = int(Polinomio_Irreducible, 16)
+
+        self.gf = G_F(self.Polinomio_Irreducible)
         
         self.SBox = [           # se puede generar algorítmicamente
             0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,

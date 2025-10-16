@@ -44,8 +44,10 @@ def main():
     
     if not os.path.exists(fichero):
         print(f"[ERROR] El fichero '{fichero}' no existe.")
+        return 
     elif not os.access(fichero, os.R_OK):
         print(f"[ERROR] El fichero '{fichero}' no se puede leer (permisos insuficientes).")
+        return
     else:
         print(f"[OK] El fichero '{fichero}' está accesible.")
 
@@ -53,11 +55,13 @@ def main():
         print(f"[OK] El polinomio '{polinomio}' tiene un formato correcto.")
     else:
         print(f"[ERROR] El polinomio '{polinomio}' no tiene un formato hexadecimal (0x123).")
+        return
     
     if es_hexadecimal(clave):
         print(f"[OK] La clave '{clave}' tiene un formato correcto.")
     else:
         print(f"[ERROR] La clave '{clave}' no tiene un formato hexadecimal (0x01234567890abcdef01234567890abcd).")
+        return
 
     if accion == "-c":
         print(f"[INFO] Cifrando '{fichero}' con polinomio {polinomio} y clave {clave}")

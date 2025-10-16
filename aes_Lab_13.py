@@ -453,7 +453,7 @@ class AES:
             prev = block
 
         decrypted_message = b"".join(decrypted_blocks)
-
+        
         pad_len = decrypted_message[-1]
 
         if pad_len < 1 or pad_len > 16:

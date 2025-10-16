@@ -39,8 +39,6 @@ def main():
     args = sys.argv[1:]
     accion = args[0]
     fichero = args[2]
-    polinomio = args[4]
-    clave = args[6]
     
     if not os.path.exists(fichero):
         print(f"[ERROR] El fichero '{fichero}' no existe.")
@@ -51,28 +49,32 @@ def main():
     else:
         print(f"[OK] El fichero '{fichero}' está accesible.")
 
+    polinomio = args[4]
     if es_hexadecimal(polinomio):
-        print(f"[OK] El polinomio '{polinomio}' tiene un formato correcto.")
+        polinomio = int(polinomio, 16)
+        print(f"[OK] El polinomio '{hex(polinomio)}' tiene un formato correcto.")
     else:
         print(f"[ERROR] El polinomio '{polinomio}' no tiene un formato hexadecimal (0x123).")
         return
     
+    clave = args[6]
     if es_hexadecimal(clave):
-        print(f"[OK] La clave '{clave}' tiene un formato correcto.")
+        clave = bytes.fromhex(clave[2:])
+        print(f"[OK] La clave '0x{clave.hex()}' tiene un formato correcto.")
     else:
         print(f"[ERROR] La clave '{clave}' no tiene un formato hexadecimal (0x01234567890abcdef01234567890abcd).")
         return
 
     if accion == "-c":
-        print(f"[INFO] Cifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
+        print(f"[INFO] Cifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
         fichero_enc = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
     elif accion == "-d":
-        print(f"[INFO] Descifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
+        print(f"[INFO] Descifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
         fichero_dec = aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
     elif accion == "-t":    # ELIMINAR solo es para debugar (también librerias)
-        print(f"[INFO] Cifrando '{fichero}' con polinomio {polinomio} y clave {clave}")
+        print(f"[INFO] Cifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
         fichero_enc = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
-        print(f"[INFO] Descifrando '{fichero_enc}' con polinomio {polinomio} y clave {clave}")
+        print(f"[INFO] Descifrando '{fichero_enc}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
         fichero_dec = aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero_enc)
         result = subprocess.run(
             ["fc", os.path.abspath(fichero), os.path.abspath(fichero_dec)],

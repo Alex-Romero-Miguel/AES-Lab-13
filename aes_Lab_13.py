@@ -276,7 +276,7 @@ class AES:
         5.1.3 MIXCOLUMNS()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        M = self.MixMatrix.copy()
+        M = copy.deepcopy(self.MixMatrix)
         for c in range(4):
             col = [State[r][c] & 0xFF for r in range(4)]
             out = self._mat_mul_4x4(M, col)

@@ -66,14 +66,10 @@ class G_F:
                 is_generator = True
 
         self.g = g
-        #print("G_F.g =", self.g + "\n")
 
         # Duplicamos Tabla_EXP
         for i in range(255, 512):
             self.Tabla_EXP[i] = self.Tabla_EXP[i - 255]
-
-        #print("G_F.Tabla_EXP", self.Tabla_EXP + "\n")
-        #print("G_F.Tabla_LOG",self.Tabla_LOG + "\n")
 
     def xTimes(self, n):
         '''
@@ -120,14 +116,14 @@ def bytes_to_state(block):
     s = [[0] * 4 for _ in range(4)]
     for c in range(4):
         for r in range(4):
-            s[r][c] = block[r * 4 + c]
+            s[r][c] = block[4 * c + r]
     return s
 
 def state_to_bytes(state):
     out = bytearray(16)
     for c in range(4):
         for r in range(4):
-            out[r + 4 * c] = state[c][r] & 0xFF
+            out[4 * c + r] = state[r][c] & 0xFF
     return out
 
 
@@ -188,16 +184,12 @@ class AES:
                 s_aff |= (bit << i)
             self.SBox[a] = s_aff
             self.InvSBox[s_aff] = a
-        
-        #print("AES.SBox =" + self.SBox + "\n")
-        #print("AES.InvSBox =" + self.InvSBox + "\n")
 
         self.Rcon = []
         val = 0x01
         for i in range(15):
             self.Rcon.append([val & 0xFF, 0x00, 0x00, 0x00])
             val = self.G_F.xTimes(val)
-        #print("AES.Rcon =" + self.Rcon + "\n")
 
         self.MixMatrix = [
             [0x02, 0x03, 0x01, 0x01],
@@ -229,9 +221,6 @@ class AES:
                         I[r][j] ^= gf.producto(factor, I[c][j])
 
         self.InvMixMatrix = I
-
-        #print("AES.MixMatrix =" + str(self.MixMatrix))
-        #print("AES.InvMixMatrix =" + self.InvMixMatrix)
 
     def SubBytes(self, State):
         '''
@@ -302,7 +291,7 @@ class AES:
         '''
         for r in range(4):
             for c in range(4):
-                State[c][r] ^= roundKey[r][c]
+                State[r][c] ^= roundKey[c][r]
 
     def RotWord(self, word):
         '''
@@ -348,24 +337,15 @@ class AES:
         5.1 Cipher(), Algorithm 1 pág. 12
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        #print("Before AddRoundKey: AES.Expanded_KEY =" + str(Expanded_KEY) + "\n")
-        self.AddRoundKey(State, Expanded_KEY[0:4])
-        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+        self.AddRoundKey(State, Expanded_KEY[0:4])        
         for round in range(1, Nr):
             self.SubBytes(State)
-            #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.ShiftRows(State)
-            #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.MixColumns(State)
-            #print("After MixColumns: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
-            #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.SubBytes(State)
-        #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.ShiftRows(State)
-        #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
-        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         return State
 
     def InvCipher(self, State, Nr, Expanded_KEY):
@@ -421,20 +401,16 @@ class AES:
                 block[j] ^= prev[j]
             
             state = bytes_to_state(bytes(block))
-            #print("Iteration " + f"{i}" +": AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in state]) + "\n")
             self.Cipher(state, self.Nr, expanded_key)
             enc = bytes(state_to_bytes(state))
             encrypted_blocks.append(enc)
             prev = enc
 
-        #encrypted_message = b"".join(encrypted_blocks)
-        #print(encrypted_blocks)
-
-        fichero_enc = os.path.splitext(fichero)[0] + ".enc"
-        # fichero_enc = os.path.splitext(fichero) + '_' + hex(self.Polinomio_Irreducible) + "_0x" + self.key.hex() + ".enc"
+        name, extension = os.path.splitext(fichero)
+        fichero_enc = name + extension + ".enc"
+        # fichero_enc = name + extension + "_" + hex(self.Polinomio_Irreducible) + "_0x" + self.key.hex() + ".enc"
         try:
             with open(fichero_enc, "wb") as f:
-                #f.write(encrypted_message)
                 for enc_block in encrypted_blocks:
                     f.write(enc_block)
             print(f"[OK] Archivo generado: {fichero_enc}")
@@ -450,7 +426,7 @@ class AES:
         de la clase.
 
         Para descifrar se usar ́a el modo CBC, con el IV usado para cifrar.
-        El nombre de fichero descifrado ser ́a el obtenido al añadir el sufijo
+        El nombre de fichero descifrado sera el obtenido al añadir el sufijo
         .dec al nombre del fichero a descifrar:
         NombreFichero --> NombreFichero.dec
         '''
@@ -480,31 +456,25 @@ class AES:
             dec = bytes(dec)
             decrypted_blocks.append(dec)
             prev = block
-
-        #decrypted_message = b"".join(decrypted_blocks)
-        #print(decrypted_blocks)
         
         last_block = decrypted_blocks[-1]
         pad_len = last_block[-1]
-        #print(pad_len)
 
         if pad_len < 1 or pad_len > 16:
             raise ValueError("Padding PKCS#7 inválido (rango de valores).")
-        #if decrypted_message[-pad_len:] != bytes([pad_len] * pad_len):
         if last_block[-pad_len:] != bytes([pad_len] * pad_len):
             raise ValueError("Padding PKCS#7 inválido (patrón).")
         
-        #decrypted_message = decrypted_message[:-pad_len]s
         if pad_len == 16:
             decrypted_blocks.pop()
         else:
             decrypted_blocks[-1] = last_block[:-pad_len]
             
-
-        fichero_dec = os.path.splitext(fichero)[0] + ".dec"
+        name, extension = os.path.splitext(fichero)
+        fichero_dec = name + extension + ".dec"
+        # fichero_dec = name + ".dec"
         try:
             with open(fichero_dec, "wb") as f:
-                #f.write(decrypted_message)
                 for dec_block in decrypted_blocks:
                     f.write(dec_block)
             print(f"[OK] Archivo generado: {fichero_dec}")

@@ -18,8 +18,6 @@ corta.txt_0x11b_c467220306217095e29b309246602170.enc
 
 import sys
 import os
-import subprocess   # ELIMINAR solo es para debugar
-
 import aes_Lab_13
 
 def es_hexadecimal(s):
@@ -67,30 +65,13 @@ def main():
 
     if accion == "-c":
         print(f"[INFO] Cifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
-        fichero_enc = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
+        aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
     elif accion == "-d":
         print(f"[INFO] Descifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
-        fichero_dec = aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
-    elif accion == "-t":    # ELIMINAR solo es para debugar (también librerias)
-        print(f"[INFO] Cifrando '{fichero}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
-        fichero_enc = aes_Lab_13.AES(clave, polinomio).encrypt_file(fichero)
-        print(f"[INFO] Descifrando '{fichero_enc}' con polinomio '{hex(polinomio)}' y clave '0x{clave.hex()}'")
-        fichero_dec = aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero_enc)
-        result = subprocess.run(
-            ["fc", os.path.abspath(fichero), os.path.abspath(fichero_dec)],
-            capture_output=True,
-            text=True)
-        if result.returncode == 0:
-            print("[INFO] Los archivos son idénticos.")
-        elif result.returncode == 1:
-            print("[INFO] Los archivos tienen diferencias.")
-        else:
-            print("[ERROR] Error ejecutando fc.")
-            sys.exit(1)
+        aes_Lab_13.AES(clave, polinomio).decrypt_file(fichero)
     else:
         print("[INFO] Uso: python test_Lab_13.py [-c | -d] -f <fichero> -p <polinomio> -k <clave>")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

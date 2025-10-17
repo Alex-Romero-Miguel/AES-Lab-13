@@ -65,10 +65,14 @@ class G_F:
                 is_generator = True
 
         self.g = g
+        #print("G_F.g =", self.g + "\n")
 
         # Duplicamos Tabla_EXP
         for i in range(255, 512):
             self.Tabla_EXP[i] = self.Tabla_EXP[i - 255]
+
+        #print("G_F.Tabla_EXP", self.Tabla_EXP + "\n")
+        #print("G_F.Tabla_LOG",self.Tabla_LOG + "\n")
 
     def xTimes(self, n):
         '''
@@ -183,13 +187,17 @@ class AES:
                 s_aff |= (bit << i)
             self.SBox[a] = s_aff
             self.InvSBox[s_aff] = a
+        
+        #print("AES.SBox =" + self.SBox + "\n")
+        #print("AES.InvSBox =" + self.InvSBox + "\n")
 
         self.Rcon = []
         val = 0x01
         for i in range(15):
             self.Rcon.append([val & 0xFF, 0x00, 0x00, 0x00])
             val = self.G_F.xTimes(val)
-        
+        #print("AES.Rcon =" + self.Rcon + "\n")
+
         M = [
             [0x02, 0x03, 0x01, 0x01],
             [0x01, 0x02, 0x03, 0x01],
@@ -219,6 +227,9 @@ class AES:
         
         self.MixMatrix = M
         self.InvMixMatrix = I
+
+        #print("AES.MixMatrix =" + self.MixMatrix)
+        #print("AES.InvMixMatrix =" + self.InvMixMatrix)
 
     def SubBytes(self, State):
         '''
@@ -263,12 +274,7 @@ class AES:
         5.1.3 MIXCOLUMNS()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        M = [
-            [0x02, 0x03, 0x01, 0x01],
-            [0x01, 0x02, 0x03, 0x01],
-            [0x01, 0x01, 0x02, 0x03],
-            [0x03, 0x01, 0x01, 0x02],
-        ]
+        M = self.MixMatrix
         for c in range(4):
             col = [State[r][c] & 0xFF for r in range(4)]
             out = self._mat_mul_4x4(M, col)
@@ -310,7 +316,7 @@ class AES:
         '''
         return [self.SBox[b & 0xFF] for b in word]
     
-    def KeyExpansion(self, key):    # ALGO FALLA mirar aes-Valores-TEST_0x11b.pdf
+    def KeyExpansion(self, key):
         '''
         5.2 KEYEXPANSION()
         FIPS 197: Advanced Encryption Standard (AES)
@@ -323,11 +329,11 @@ class AES:
             i += 1
         
         while i <= self.W - 1:
-            tmp = w[i-1]
+            tmp = w[i-1].copy()
             if i % self.Nk == 0:
                 tmp_rot = self.RotWord(tmp)
                 tmp_sub = self.SubWord(tmp_rot)
-                rc_word = self.Rcon[i // self.Nk]
+                rc_word = self.Rcon[i // self.Nk - 1]
                 tmp = [tmp_sub[j] ^ rc_word[j] for j in range(4)]
             elif (self.Nk > 6) and (i % self.Nk == 4):
                 tmp = self.SubWord(tmp)
@@ -340,15 +346,24 @@ class AES:
         5.1 Cipher(), Algorithm 1 pág. 12
         FIPS 197: Advanced Encryption Standard (AES)
         '''
+        #print("Before AddRoundKey: AES.Expanded_KEY =", Expanded_KEY + "\n")
         self.AddRoundKey(State, Expanded_KEY[0:4])
+        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         for round in range(1, Nr):
             self.SubBytes(State)
+            #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.ShiftRows(State)
+            #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.MixColumns(State)
+            #print("After MixColumns: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
+            #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.SubBytes(State)
+        #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.ShiftRows(State)
+        #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
+        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         return State
 
     def InvCipher(self, State, Nr, Expanded_KEY):
@@ -404,6 +419,7 @@ class AES:
                 block[j] ^= prev[j]
             
             state = bytes_to_state(bytes(block))
+            #print("Iteration ", i,": AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in state]) + "\n")
             self.Cipher(state, self.Nr, expanded_key)
             enc = bytes(state_to_bytes(state))
             encrypted_blocks.append(enc)

@@ -301,6 +301,11 @@ class AES:
         for r in range(4):
             for c in range(4):
                 State[r][c] ^= roundKey[r][c]
+        for r in range(4):
+            for c in range(4-r):
+                src = State[r][c]
+                State[r][c] = State[c][r]
+                State[c][r] = src
 
     def RotWord(self, word):
         '''
@@ -346,9 +351,9 @@ class AES:
         5.1 Cipher(), Algorithm 1 pág. 12
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        #print("Before AddRoundKey: AES.Expanded_KEY =", Expanded_KEY + "\n")
+        #print("Before AddRoundKey: AES.Expanded_KEY =" + str(Expanded_KEY) + "\n")
         self.AddRoundKey(State, Expanded_KEY[0:4])
-        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+        print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         for round in range(1, Nr):
             self.SubBytes(State)
             #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
@@ -419,7 +424,7 @@ class AES:
                 block[j] ^= prev[j]
             
             state = bytes_to_state(bytes(block))
-            #print("Iteration ", i,": AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in state]) + "\n")
+            print("Iteration " + f"{i}" +": AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in state]) + "\n")
             self.Cipher(state, self.Nr, expanded_key)
             enc = bytes(state_to_bytes(state))
             encrypted_blocks.append(enc)

@@ -43,9 +43,7 @@ class G_F:
                 if b & 1:
                     res ^= a
                 b >>= 1
-                a <<= 1         # SUSTUIR POR XTIMES
-                if a & 0x100:
-                    a ^= self.Polinomio_Irreducible
+                a = self.xTimes(a)
             return res & 0xFF
 
         # Construcción de tablas a partir del generador
@@ -77,7 +75,7 @@ class G_F:
         Entrada: un elemento del cuerpo representado por un entero entre 0 y
         255
         Salida: un elemento del cuerpo representado por un entero entre 0 y 255
-        que es el producto en el cuerpo de 'n' y 0x02 (el polinomio x).
+        que es el producto en el cuerpo de 'n' y '0x02' (el polinomio 'x').
         '''
         res = n << 1
         if res & 0x100:
@@ -141,7 +139,7 @@ class AES:
         '''
         Función auxiliar para multiplicar una matriz M 4x4 por un vector v 4x1 en GF(2^8).
         '''
-        gf = self.gf
+        gf = self.G_F
         r0 = gf.producto(v[0], M[0][0]) ^ gf.producto(v[1], M[0][1]) ^ gf.producto(v[2], M[0][2]) ^ gf.producto(v[3], M[0][3])
         r1 = gf.producto(v[0], M[1][0]) ^ gf.producto(v[1], M[1][1]) ^ gf.producto(v[2], M[1][2]) ^ gf.producto(v[3], M[1][3])
         r2 = gf.producto(v[0], M[2][0]) ^ gf.producto(v[1], M[2][1]) ^ gf.producto(v[2], M[2][2]) ^ gf.producto(v[3], M[2][3])
@@ -166,14 +164,16 @@ class AES:
 
         self.Nr = self.Nk + 6
 
+        self.W = 4 * (self.Nr + 1)
+
         self.Polinomio_Irreducible = Polinomio_Irreducible
 
-        self.gf = G_F(self.Polinomio_Irreducible)
+        self.G_F = G_F(self.Polinomio_Irreducible)
 
         self.SBox = [0] * 256
         self.InvSBox = [0] * 256
         for a in range(256):
-            inv = self.gf.inverso(a)
+            inv = self.G_F.inverso(a)
             s = inv
             s_aff = 0
             for i in range(8):
@@ -184,29 +184,41 @@ class AES:
             self.SBox[a] = s_aff
             self.InvSBox[s_aff] = a
 
-        self.Rcon = [           # GENERAR ALGORÍTMICAMENTE
-            [0x01,0x00,0x00,0x00],
-            [0x02,0x00,0x00,0x00],
-            [0x04,0x00,0x00,0x00],
-            [0x08,0x00,0x00,0x00],
-            [0x10,0x00,0x00,0x00],
-            [0x20,0x00,0x00,0x00],
-            [0x40,0x00,0x00,0x00],
-            [0x80,0x00,0x00,0x00],
-            [0x1b,0x00,0x00,0x00],
-            [0x36,0x00,0x00,0x00],
-            [0x6c,0x00,0x00,0x00],
-            [0xd8,0x00,0x00,0x00],
-            [0xab,0x00,0x00,0x00],
-            [0x4d,0x00,0x00,0x00],
-            [0x9a,0x00,0x00,0x00]]
+        self.Rcon = []
+        val = 0x01
+        for i in range(15):
+            self.Rcon.append([val & 0xFF, 0x00, 0x00, 0x00])
+            val = self.G_F.xTimes(val)
         
-        self.InvMixMatrix = [   # GENERAR ALGORÍTMICAMENTE
-            [0x0e,0x0b,0x0d,0x09],
-            [0x09,0x0e,0x0b,0x0d],
-            [0x0d,0x09,0x0e,0x0b],
-            [0x0b,0x0d,0x09,0x0e]
-        ]
+        M = [
+            [0x02, 0x03, 0x01, 0x01],
+            [0x01, 0x02, 0x03, 0x01],
+            [0x01, 0x01, 0x02, 0x03],
+            [0x03, 0x01, 0x01, 0x02]]
+                
+        I = [[int(r==c) for c in range(4)] for r in range(4)]
+        gf = self.G_F
+
+        for c in range(4):
+            if M[c][c] == 0:
+                for r in range(c+1,4):
+                    if M[r][c] != 0:
+                        M[c], M[r] = M[r], M[c]
+                        I[c], I[r] = I[r], I[c]
+                        break
+            inv = gf.inverso(M[c][c])
+            for j in range(4):
+                M[c][j] = gf.producto(M[c][j], inv)
+                I[c][j] = gf.producto(I[c][j], inv)
+            for r in range(4):
+                if r != c:
+                    factor = M[r][c]
+                    for j in range(4):
+                        M[r][j] ^= gf.producto(factor, M[c][j])
+                        I[r][j] ^= gf.producto(factor, I[c][j])
+        
+        self.MixMatrix = M
+        self.InvMixMatrix = I
 
     def SubBytes(self, State):
         '''
@@ -303,14 +315,14 @@ class AES:
         5.2 KEYEXPANSION()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        w = [[0,0,0,0] for _ in range(4 * (self.Nr + 1))]
+        w = [[0,0,0,0] for _ in range(self.W)]
         
         i = 0
         while i <= self.Nk -1:
             w[i] = [key[4*i], key[4*i+1], key[4*i+2], key[4*i+3]]
             i += 1
         
-        while i <= 4 * self.Nr + 3:
+        while i <= self.W - 1:
             tmp = w[i-1]
             if i % self.Nk == 0:
                 tmp_rot = self.RotWord(tmp)
@@ -397,9 +409,10 @@ class AES:
             encrypted_blocks.append(enc)
             prev = enc
 
-        encrypted_message = b"".join(encrypted_blocks)      # revisar (corrección y eficiencia)
+        encrypted_message = b"".join(encrypted_blocks)
 
-        fichero_enc = os.path.splitext(fichero)[0] + ".enc"     # CAMBIAR NOMBRES formato .txt_polinomio_clave.dec
+        fichero_enc = os.path.splitext(fichero)[0] + ".enc"
+        # fichero_enc = os.path.splitext(fichero) + '_' + hex(self.Polinomio_Irreducible) + "_0x" + self.key.hex() + ".enc"
         try:
             with open(fichero_enc, "wb") as f:
                 f.write(encrypted_message)
@@ -447,7 +460,7 @@ class AES:
             decrypted_blocks.append(dec)
             prev = block
 
-        decrypted_message = b"".join(decrypted_blocks)      # revisar (corrección y eficiencia)
+        decrypted_message = b"".join(decrypted_blocks)
         
         pad_len = decrypted_message[-1]
 
@@ -458,7 +471,7 @@ class AES:
         
         decrypted_message = decrypted_message[:-pad_len]
 
-        fichero_dec = os.path.splitext(fichero)[0] + ".dec"     # CAMBIAR NOMBRES formato .txt_polinomio_clave.dec
+        fichero_dec = os.path.splitext(fichero)[0] + ".dec"
         try:
             with open(fichero_dec, "wb") as f:
                 f.write(decrypted_message)

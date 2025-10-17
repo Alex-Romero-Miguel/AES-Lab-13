@@ -15,6 +15,7 @@ deberíais poder descifrarlo con vuestra implementación.
 
 import os
 from hashlib import sha256
+import copy
 
 class G_F:
     '''
@@ -198,12 +199,14 @@ class AES:
             val = self.G_F.xTimes(val)
         #print("AES.Rcon =" + self.Rcon + "\n")
 
-        M = [
+        self.MixMatrix = [
             [0x02, 0x03, 0x01, 0x01],
             [0x01, 0x02, 0x03, 0x01],
             [0x01, 0x01, 0x02, 0x03],
             [0x03, 0x01, 0x01, 0x02]]
-                
+
+        M = copy.deepcopy(self.MixMatrix)
+
         I = [[int(r==c) for c in range(4)] for r in range(4)]
         gf = self.G_F
 
@@ -224,11 +227,10 @@ class AES:
                     for j in range(4):
                         M[r][j] ^= gf.producto(factor, M[c][j])
                         I[r][j] ^= gf.producto(factor, I[c][j])
-        
-        self.MixMatrix = M
+
         self.InvMixMatrix = I
 
-        #print("AES.MixMatrix =" + self.MixMatrix)
+        #print("AES.MixMatrix =" + str(self.MixMatrix))
         #print("AES.InvMixMatrix =" + self.InvMixMatrix)
 
     def SubBytes(self, State):
@@ -274,12 +276,12 @@ class AES:
         5.1.3 MIXCOLUMNS()
         FIPS 197: Advanced Encryption Standard (AES)
         '''
-        M = self.MixMatrix
+        M = self.MixMatrix.copy()
         for c in range(4):
-            col = [State[c][r] & 0xFF for r in range(4)]
+            col = [State[r][c] & 0xFF for r in range(4)]
             out = self._mat_mul_4x4(M, col)
             for r in range(4):
-                State[c][r] = out[r]
+                State[r][c] = out[r]
 
     def InvMixColumns(self, State):
         '''

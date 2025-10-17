@@ -119,14 +119,14 @@ def bytes_to_state(block):
     s = [[0] * 4 for _ in range(4)]
     for c in range(4):
         for r in range(4):
-            s[r][c] = block[r + 4 * c]
+            s[r][c] = block[r * 4 + c]
     return s
 
 def state_to_bytes(state):
     out = bytearray(16)
     for c in range(4):
         for r in range(4):
-            out[r + 4 * c] = state[r][c] & 0xFF
+            out[r + 4 * c] = state[c][r] & 0xFF
     return out
 
 
@@ -276,10 +276,10 @@ class AES:
         '''
         M = self.MixMatrix
         for c in range(4):
-            col = [State[r][c] & 0xFF for r in range(4)]
+            col = [State[c][r] & 0xFF for r in range(4)]
             out = self._mat_mul_4x4(M, col)
             for r in range(4):
-                State[r][c] = out[r]
+                State[c][r] = out[r]
 
     def InvMixColumns(self, State):
         '''
@@ -288,10 +288,10 @@ class AES:
         '''
         M = self.InvMixMatrix
         for c in range(4):
-            col = [State[r][c] & 0xFF for r in range(4)]
+            col = [State[c][r] & 0xFF for r in range(4)]
             out = self._mat_mul_4x4(M, col)
             for r in range(4):
-                State[r][c] = out[r]
+                State[c][r] = out[r]
 
     def AddRoundKey(self, State, roundKey):
         '''
@@ -300,12 +300,7 @@ class AES:
         '''
         for r in range(4):
             for c in range(4):
-                State[r][c] ^= roundKey[r][c]
-        for r in range(4):
-            for c in range(4-r):
-                src = State[r][c]
-                State[r][c] = State[c][r]
-                State[c][r] = src
+                State[c][r] ^= roundKey[r][c]
 
     def RotWord(self, word):
         '''
@@ -356,19 +351,19 @@ class AES:
         print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         for round in range(1, Nr):
             self.SubBytes(State)
-            #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+            print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.ShiftRows(State)
-            #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+            print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.MixColumns(State)
-            #print("After MixColumns: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+            print("After MixColumns: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
             self.AddRoundKey(State, Expanded_KEY[4*round:4*round+4])
-            #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+            print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.SubBytes(State)
-        #print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+        print("After SubBytes: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.ShiftRows(State)
-        #print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+        print("After ShiftRows: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         self.AddRoundKey(State, Expanded_KEY[4*Nr:4*Nr+4])
-        #print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
+        print("After AddRoundKey: AES.State =\n" + "\n".join([" ".join(f"0x{x:02x}" for x in row) for row in State]) + "\n")
         return State
 
     def InvCipher(self, State, Nr, Expanded_KEY):
